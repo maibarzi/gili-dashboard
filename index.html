@@ -335,22 +335,15 @@ body {
   </div>
 
   <div class="content">
-
-    <!-- APPTS PAGE -->
     <div id="appts" class="page active">
       <div id="apptsContent"><div class="empty">Termine laden...</div></div>
     </div>
-
-    <!-- INCOME PAGE -->
     <div id="income" class="page">
       <div id="incomeContent"><div class="empty">Daten laden...</div></div>
     </div>
-
-    <!-- CHATS PAGE -->
     <div id="chats" class="page">
       <div id="chatsContent"><div class="empty">Chats laden...</div></div>
     </div>
-
   </div>
 </div>
 
@@ -371,6 +364,7 @@ body {
 const CONFIG = {
   SHEET_ID: '1pzEmJurLrqu_RANs_Sqafmk0Ko8qVvOfiwpRLBbiP_Y',
   SHEET_NAME: 'גיליון1',
+  CALENDAR_ID: 'bb71b84b2df8a8e1c57a4e7a0ad436ac6bda60e4d82370b68af9f10828d6ec56@group.calendar.google.com',
   API_KEY: 'AIzaSyAZI1NiMs4QTUGhspERuN1IN0C8S1WOQ2A',
   PIN: '1234',
   REFRESH_MS: 30000
@@ -378,16 +372,14 @@ const CONFIG = {
 
 const PRICE_MAP = [
   { keys: ['extralang','extra-lang','extra lang'], price: 168 },
-  { keys: ['ansatzblondierung','ansatz'], price: 158, note: 'lang' },
-  { keys: ['ansatzblondierung','ansatz'], price: 148, note: 'mittel' },
-  { keys: ['ansatzblondierung','ansatz'], price: 138, note: 'kurz' },
+  { keys: ['ansatzblondierung','ansatz'], price: 158 },
   { keys: ['komplettfarbe','full color','full colour','coloration'], price: 115 },
   { keys: ['strähnen','highlights','balayage'], price: 115 },
   { keys: ['blondierung','bleaching','bleach'], price: 115 },
   { keys: ['speziell','special package','special haircut'], price: 120 },
   { keys: ['wash, cut & blow-dry (long)','waschen, schneiden & föhnen (lang)','long hair'], price: 100 },
-  { keys: ['wash, cut & blow-dry (medium)','waschen, schneiden & föhnen (mittel)','medium hair','mittel'], price: 80 },
-  { keys: ['wash, cut & blow-dry (short)','waschen, schneiden & föhnen (kurz)','short hair','kurz'], price: 70 },
+  { keys: ['wash, cut & blow-dry (medium)','waschen, schneiden & föhnen (mittel)','medium hair'], price: 80 },
+  { keys: ['wash, cut & blow-dry (short)','waschen, schneiden & föhnen (kurz)','short hair'], price: 70 },
   { keys: ['herren','herrenhaarschnitt','men\'s haircut','men haircut'], price: 60 },
   { keys: ['trockenhaarschnitt','dry haircut','damenhaarschnitt','women\'s haircut (short'], price: 30 },
   { keys: ['kinder','child','children','kids'], price: 30 },
@@ -407,9 +399,7 @@ function getPrice(service) {
   if (!service) return null;
   const s = service.toLowerCase();
   for (const rule of PRICE_MAP) {
-    if (rule.keys.some(k => s.includes(k.toLowerCase()))) {
-      return rule.price;
-    }
+    if (rule.keys.some(k => s.includes(k.toLowerCase()))) return rule.price;
   }
   return null;
 }
@@ -451,7 +441,6 @@ const days = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','S
 const months = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 document.getElementById('headerDate').textContent = `${days[now.getDay()]}, ${now.getDate()}. ${months[now.getMonth()]}`;
 
-// PAGE SWITCHING
 function showPage(id, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -459,15 +448,15 @@ function showPage(id, btn) {
   btn.classList.add('active');
 }
 
-// DATA
 let allRows = [];
+let calendarEvents = [];
 
 async function loadData() {
   try {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${encodeURIComponent(CONFIG.SHEET_NAME)}!A:G?key=${CONFIG.API_KEY}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    const rows = data.values || [];
+    const sheetUrl = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${encodeURIComponent(CONFIG.SHEET_NAME)}!A:G?key=${CONFIG.API_KEY}`;
+    const sheetRes = await fetch(sheetUrl);
+    const sheetData = await sheetRes.json();
+    const rows = sheetData.values || [];
     allRows = rows.slice(1).map(r => ({
       time: r[0] || '',
       phone: r[1] || '',
@@ -477,10 +466,18 @@ async function loadData() {
       customerName: r[5] || '',
       service: r[6] || ''
     })).filter(r => r.time);
+
+    const timeMin = new Date().toISOString();
+    const timeMax = new Date(Date.now() + 60*24*60*60*1000).toISOString();
+    const calUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CONFIG.CALENDAR_ID)}/events?key=${CONFIG.API_KEY}&timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime`;
+    const calRes = await fetch(calUrl);
+    const calData = await calRes.json();
+    calendarEvents = (calData.items || []).filter(e => e.status !== 'cancelled');
+
     renderAll();
     setTimeout(loadData, CONFIG.REFRESH_MS);
   } catch(e) {
-    console.error(e);
+    console.error('loadData error:', e);
   }
 }
 
@@ -492,14 +489,20 @@ function renderAll() {
 
 // ---- APPOINTMENTS ----
 function renderAppts() {
-  const todayStr = now.toISOString().slice(0,10);
-  const booked = allRows.filter(r => r.status === 'BOOKED' && r.time.slice(0,10) >= todayStr);
-
   const byDate = {};
-  booked.forEach(r => {
-    const d = r.time.slice(0,10);
-    if (!byDate[d]) byDate[d] = [];
-    byDate[d].push(r);
+
+  calendarEvents.forEach(event => {
+    const start = event.start?.dateTime || event.start?.date || '';
+    const date = start.slice(0,10);
+    if (!byDate[date]) byDate[date] = [];
+    const summary = event.summary || '';
+    const parts = summary.split(' \u2013 ');
+    const svc = parts[0] || summary;
+    const name = parts[1] || '';
+    const desc = event.description || '';
+    const phoneMatch = desc.match(/Phone:\s*(\d+)/);
+    const phone = phoneMatch ? phoneMatch[1] : '';
+    byDate[date].push({ start, svc, name, phone, eventId: event.id });
   });
 
   const sorted = Object.keys(byDate).sort();
@@ -509,23 +512,20 @@ function renderAppts() {
     html = '<div class="empty">Keine Termine gefunden</div>';
   } else {
     sorted.forEach(date => {
-      const label = formatDateLabel(date);
-      html += `<div class="section-label">${label}</div>`;
+      html += `<div class="section-label">${formatDateLabel(date)}</div>`;
       byDate[date].forEach(r => {
-        const t = formatTime(r.time);
-        const name = r.customerName || r.phone;
-        const svc = r.service || extractService(r.botResponse);
-        const isPast = date < todayStr;
+        const t = formatTime(r.start);
+        const telLink = r.phone ? `<a href="tel:${r.phone}" class="tel-btn" onclick="event.stopPropagation()"><i data-lucide="phone" style="width:14px;height:14px"></i></a>` : '';
         html += `
-          <div class="card" onclick="openChat(${JSON.stringify(name)}, ${JSON.stringify(r.phone)}, ${JSON.stringify(r.status)}, ${JSON.stringify(r.phone)})">
+          <div class="card">
             <div class="card-info">
-              <div class="card-name">${name}</div>
-              <div class="card-sub">${svc || '—'}</div>
+              <div class="card-name">${r.name || '—'}</div>
+              <div class="card-sub">${r.svc || '—'}</div>
               <div class="card-time">${t}</div>
             </div>
             <div class="card-right">
-              <span class="badge ${isPast ? 'b-muted' : 'b-green'}">${isPast ? 'Erledigt' : 'Bestätigt'}</span>
-              <a href="tel:${r.phone}" class="tel-btn" onclick="event.stopPropagation()"><i data-lucide="phone" style="width:14px;height:14px"></i></a>
+              <span class="badge b-green">Bestätigt</span>
+              ${telLink}
             </div>
           </div>`;
       });
@@ -552,19 +552,16 @@ function renderIncome() {
 
   const calcRevenue = arr => arr.reduce((sum, r) => {
     const svc = r.service || extractService(r.botResponse);
-    const p = getPrice(svc);
-    return sum + (p || 0);
+    return sum + (getPrice(svc) || 0);
   }, 0);
 
   const pastRev = calcRevenue(past);
   const futureRev = calcRevenue(future);
   const totalRev = pastRev + futureRev;
-
   const weekData = buildWeekData(booked);
 
   let apptList = '';
-  const allMonth = [...past, ...future].sort((a,b) => a.time.localeCompare(b.time));
-  allMonth.forEach(r => {
+  [...past, ...future].sort((a,b) => a.time.localeCompare(b.time)).forEach(r => {
     const svc = r.service || extractService(r.botResponse);
     const price = getPrice(svc);
     const isPast = r.time.slice(0,10) <= todayStr;
@@ -582,26 +579,16 @@ function renderIncome() {
       </div>`;
   });
 
-  const html = `
+  document.getElementById('incomeContent').innerHTML = `
     <div class="income-summary">
-      <div class="income-month">April ${now.getFullYear()}</div>
+      <div class="income-month">${months[now.getMonth()]} ${now.getFullYear()}</div>
       <div class="income-total"><span>€</span>${totalRev}</div>
       <div class="income-grid">
-        <div class="income-stat">
-          <div class="income-stat-label">Erledigt</div>
-          <div class="income-stat-value green">€${pastRev}</div>
-        </div>
-        <div class="income-stat">
-          <div class="income-stat-label">Erwartet</div>
-          <div class="income-stat-value amber">€${futureRev}</div>
-        </div>
-        <div class="income-stat">
-          <div class="income-stat-label">Termine</div>
-          <div class="income-stat-value">${booked.length}</div>
-        </div>
+        <div class="income-stat"><div class="income-stat-label">Erledigt</div><div class="income-stat-value green">€${pastRev}</div></div>
+        <div class="income-stat"><div class="income-stat-label">Erwartet</div><div class="income-stat-value amber">€${futureRev}</div></div>
+        <div class="income-stat"><div class="income-stat-label">Termine</div><div class="income-stat-value">${booked.length}</div></div>
       </div>
     </div>
-
     <div class="income-split">
       <div class="income-split-card">
         <div class="isc-label">Erledigt <span class="isc-dot" style="background:#4ADE80"></span></div>
@@ -614,50 +601,33 @@ function renderIncome() {
         <div class="isc-count">${future.length} Termine</div>
       </div>
     </div>
-
     ${buildChart(weekData)}
-
     <div class="section-label">Alle Termine diesen Monat</div>
     ${apptList || '<div class="empty">Keine Termine diesen Monat</div>'}
   `;
-  document.getElementById('incomeContent').innerHTML = html;
 }
 
 function buildWeekData(booked) {
   const weeks = ['KW1','KW2','KW3','KW4','KW5'];
-  const data = weeks.map((w,i) => {
+  return weeks.map((w,i) => {
     const wStart = new Date(now.getFullYear(), now.getMonth(), 1 + i*7);
     const wEnd = new Date(now.getFullYear(), now.getMonth(), 7 + i*7);
-    const inWeek = booked.filter(r => {
+    const rev = booked.filter(r => {
       const d = new Date(r.time);
       return d >= wStart && d <= wEnd;
-    });
-    const rev = inWeek.reduce((s,r) => {
-      const svc = r.service || extractService(r.botResponse);
-      return s + (getPrice(svc) || 0);
-    }, 0);
-    const isCurrent = wStart <= now && now <= wEnd;
-    const isFuture = wStart > now;
-    return { label: w, rev, isCurrent, isFuture };
-  }).filter((_, i) => new Date(now.getFullYear(), now.getMonth(), 1 + i*7) <= new Date(now.getFullYear(), now.getMonth()+1, 0));
-  return data;
+    }).reduce((s,r) => s + (getPrice(r.service || extractService(r.botResponse)) || 0), 0);
+    return { label: w, rev, isCurrent: wStart <= now && now <= wEnd, isFuture: wStart > now };
+  }).filter((_,i) => new Date(now.getFullYear(), now.getMonth(), 1 + i*7) <= new Date(now.getFullYear(), now.getMonth()+1, 0));
 }
 
 function buildChart(weeks) {
   const maxRev = Math.max(...weeks.map(w => w.rev), 1);
-  let bars = '';
-  weeks.forEach(w => {
-    const h = Math.round((w.rev / maxRev) * 52);
+  const bars = weeks.map(w => {
+    const h = Math.max(Math.round((w.rev / maxRev) * 52), 3);
     const cls = w.isCurrent ? 'active' : w.isFuture ? 'future' : '';
-    bars += `<div class="bar-col">
-      <div class="bar ${cls}" style="height:${Math.max(h,3)}px"></div>
-      <div class="bar-label">${w.label}</div>
-    </div>`;
-  });
-  return `<div class="chart-wrap">
-    <div class="chart-title">Einnahmen pro Woche — ${months[now.getMonth()]}</div>
-    <div class="chart-bars">${bars}</div>
-  </div>`;
+    return `<div class="bar-col"><div class="bar ${cls}" style="height:${h}px"></div><div class="bar-label">${w.label}</div></div>`;
+  }).join('');
+  return `<div class="chart-wrap"><div class="chart-title">Einnahmen pro Woche — ${months[now.getMonth()]}</div><div class="chart-bars">${bars}</div></div>`;
 }
 
 // ---- CHATS ----
@@ -669,10 +639,9 @@ function renderChats() {
     byPhone[r.phone].push(r);
   });
 
-  const lastByPhone = Object.entries(byPhone).map(([phone, rows]) => {
-    const sorted = rows.sort((a,b) => b.time.localeCompare(a.time));
-    return sorted[0];
-  }).sort((a,b) => b.time.localeCompare(a.time));
+  const lastByPhone = Object.entries(byPhone)
+    .map(([phone, rows]) => rows.sort((a,b) => b.time.localeCompare(a.time))[0])
+    .sort((a,b) => b.time.localeCompare(a.time));
 
   let html = '';
   if (lastByPhone.length === 0) {
@@ -688,7 +657,7 @@ function renderChats() {
       const statusLabel = r.status === 'BOOKED' ? 'Gebucht' : r.status === 'HANDOFF_NEEDED' ? 'HANDOFF' : r.status === 'CANCELLED' ? 'Storniert' : r.status || '—';
       const allMsgs = byPhone[r.phone].sort((a,b) => a.time.localeCompare(b.time));
       const key = 'chat_' + r.phone.replace(/\D/g,'');
-      window._chatData[key] = {name, phone: r.phone, status: r.status, msgs: allMsgs};
+      window._chatData[key] = { name, phone: r.phone, status: r.status, msgs: allMsgs };
       html += `
         <div class="card" onclick="openChatByKey('${key}')">
           <div class="card-info">
@@ -714,11 +683,6 @@ function openChatByKey(key) {
   openChatFromRows(d.name, d.phone, d.status, d.msgs);
 }
 
-function openChat(name, phone, status, phoneKey) {
-  const msgs = allRows.filter(r => r.phone === phoneKey).sort((a,b) => a.time.localeCompare(b.time));
-  openChatFromRows(name, phone, status, msgs);
-}
-
 function openChatFromRows(name, phone, status, msgs) {
   document.getElementById('chatName').textContent = name;
   document.getElementById('chatStatus').textContent = status;
@@ -727,9 +691,7 @@ function openChatFromRows(name, phone, status, msgs) {
   let html = '';
   msgs.forEach(r => {
     const t = formatTime(r.time);
-    if (r.userMsg) {
-      html += `<div><div class="msg msg-in">${r.userMsg}<div class="msg-time">${t}</div></div></div>`;
-    }
+    if (r.userMsg) html += `<div><div class="msg msg-in">${r.userMsg}<div class="msg-time">${t}</div></div></div>`;
     if (r.botResponse) {
       const clean = r.botResponse.replace(/\[\[STATUS:\w+\]\]/g, '').trim();
       html += `<div style="display:flex;justify-content:flex-end"><div class="msg msg-out">${clean}<div class="msg-time">${t}</div></div></div>`;
@@ -753,8 +715,7 @@ function extractService(botResponse) {
 
 function formatTime(iso) {
   if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatDateLabel(dateStr) {
