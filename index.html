@@ -372,14 +372,16 @@ const CONFIG = {
 
 const PRICE_MAP = [
   { keys: ['extralang','extra-lang','extra lang'], price: 168 },
-  { keys: ['ansatzblondierung','ansatz'], price: 158 },
+  { keys: ['ansatzblondierung','ansatz'], price: 158, note: 'lang' },
+  { keys: ['ansatzblondierung','ansatz'], price: 148, note: 'mittel' },
+  { keys: ['ansatzblondierung','ansatz'], price: 138, note: 'kurz' },
   { keys: ['komplettfarbe','full color','full colour','coloration'], price: 115 },
   { keys: ['strähnen','highlights','balayage'], price: 115 },
   { keys: ['blondierung','bleaching','bleach'], price: 115 },
   { keys: ['speziell','special package','special haircut'], price: 120 },
   { keys: ['wash, cut & blow-dry (long)','waschen, schneiden & föhnen (lang)','long hair'], price: 100 },
-  { keys: ['wash, cut & blow-dry (medium)','waschen, schneiden & föhnen (mittel)','medium hair'], price: 80 },
-  { keys: ['wash, cut & blow-dry (short)','waschen, schneiden & föhnen (kurz)','short hair'], price: 70 },
+  { keys: ['wash, cut & blow-dry (medium)','waschen, schneiden & föhnen (mittel)','medium hair','mittel'], price: 80 },
+  { keys: ['wash, cut & blow-dry (short)','waschen, schneiden & föhnen (kurz)','short hair','kurz'], price: 70 },
   { keys: ['herren','herrenhaarschnitt','men\'s haircut','men haircut'], price: 60 },
   { keys: ['trockenhaarschnitt','dry haircut','damenhaarschnitt','women\'s haircut (short'], price: 30 },
   { keys: ['kinder','child','children','kids'], price: 30 },
@@ -538,41 +540,39 @@ function renderAppts() {
 // ---- INCOME ----
 function renderIncome() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 23, 59, 59);
   const todayStr = now.toISOString().slice(0,10);
 
-  const booked = allRows.filter(r => {
-    if (r.status !== 'BOOKED') return false;
-    const d = new Date(r.time);
+  const monthEvents = calendarEvents.filter(e => {
+    const d = new Date(e.start?.dateTime || e.start?.date);
     return d >= monthStart && d <= monthEnd;
   });
 
-  const past = booked.filter(r => r.time.slice(0,10) <= todayStr);
-  const future = booked.filter(r => r.time.slice(0,10) > todayStr);
+  const past = monthEvents.filter(e => (e.start?.dateTime || e.start?.date).slice(0,10) <= todayStr);
+  const future = monthEvents.filter(e => (e.start?.dateTime || e.start?.date).slice(0,10) > todayStr);
 
-  const calcRevenue = arr => arr.reduce((sum, r) => {
-    const svc = r.service || extractService(r.botResponse);
+  const calcRevenue = arr => arr.reduce((sum, e) => {
+    const svc = (e.summary || '').split(' \u2013 ')[0];
     return sum + (getPrice(svc) || 0);
   }, 0);
 
   const pastRev = calcRevenue(past);
   const futureRev = calcRevenue(future);
   const totalRev = pastRev + futureRev;
-  const weekData = buildWeekData(booked);
 
   let apptList = '';
-  [...past, ...future].sort((a,b) => a.time.localeCompare(b.time)).forEach(r => {
-    const svc = r.service || extractService(r.botResponse);
+  [...past, ...future].sort((a,b) => (a.start?.dateTime||a.start?.date).localeCompare(b.start?.dateTime||b.start?.date)).forEach(e => {
+    const start = e.start?.dateTime || e.start?.date;
+    const svc = (e.summary || '').split(' \u2013 ')[0];
+    const name = (e.summary || '').split(' \u2013 ')[1] || '—';
     const price = getPrice(svc);
-    const isPast = r.time.slice(0,10) <= todayStr;
-    const name = r.customerName || r.phone;
-    const dateStr = formatDateShort(r.time.slice(0,10));
+    const isPast = start.slice(0,10) <= todayStr;
     apptList += `
       <div class="income-appt">
         <div class="ia-left">
           <div class="ia-name">${name}</div>
           <div class="ia-service">${svc || '—'}</div>
-          <div class="ia-date">${dateStr} · ${formatTime(r.time)}</div>
+          <div class="ia-date">${formatDateShort(start.slice(0,10))} · ${formatTime(start)}</div>
         </div>
         <div class="ia-price">${price ? '€' + price : '—'}</div>
         <span class="ia-badge ${isPast ? 'ia-done' : 'ia-future'}">${isPast ? 'Erledigt' : 'Ausstehend'}</span>
@@ -586,7 +586,7 @@ function renderIncome() {
       <div class="income-grid">
         <div class="income-stat"><div class="income-stat-label">Erledigt</div><div class="income-stat-value green">€${pastRev}</div></div>
         <div class="income-stat"><div class="income-stat-label">Erwartet</div><div class="income-stat-value amber">€${futureRev}</div></div>
-        <div class="income-stat"><div class="income-stat-label">Termine</div><div class="income-stat-value">${booked.length}</div></div>
+        <div class="income-stat"><div class="income-stat-label">Termine</div><div class="income-stat-value">${monthEvents.length}</div></div>
       </div>
     </div>
     <div class="income-split">
@@ -601,21 +601,21 @@ function renderIncome() {
         <div class="isc-count">${future.length} Termine</div>
       </div>
     </div>
-    ${buildChart(weekData)}
+    ${buildChart(buildWeekData(monthEvents))}
     <div class="section-label">Alle Termine diesen Monat</div>
     ${apptList || '<div class="empty">Keine Termine diesen Monat</div>'}
   `;
 }
 
-function buildWeekData(booked) {
+function buildWeekData(events) {
   const weeks = ['KW1','KW2','KW3','KW4','KW5'];
   return weeks.map((w,i) => {
     const wStart = new Date(now.getFullYear(), now.getMonth(), 1 + i*7);
     const wEnd = new Date(now.getFullYear(), now.getMonth(), 7 + i*7);
-    const rev = booked.filter(r => {
-      const d = new Date(r.time);
+    const rev = events.filter(e => {
+      const d = new Date(e.start?.dateTime || e.start?.date);
       return d >= wStart && d <= wEnd;
-    }).reduce((s,r) => s + (getPrice(r.service || extractService(r.botResponse)) || 0), 0);
+    }).reduce((s,e) => s + (getPrice((e.summary||'').split(' \u2013 ')[0]) || 0), 0);
     return { label: w, rev, isCurrent: wStart <= now && now <= wEnd, isFuture: wStart > now };
   }).filter((_,i) => new Date(now.getFullYear(), now.getMonth(), 1 + i*7) <= new Date(now.getFullYear(), now.getMonth()+1, 0));
 }
