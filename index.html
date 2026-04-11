@@ -6,6 +6,7 @@
 <title>Gili Dashboard</title>
 <link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <style>
 :root {
   --cream: #F4F0E8;
@@ -323,13 +324,13 @@ body {
 
   <div class="nav">
     <button class="nav-btn active" onclick="showPage('appts',this)">
-      <span class="nav-icon">📅</span>Termine
+      <span class="nav-icon"><i data-lucide="calendar" style="width:18px;height:18px"></i></span>Termine
     </button>
     <button class="nav-btn" onclick="showPage('income',this)">
-      <span class="nav-icon">💰</span>Einnahmen
+      <span class="nav-icon"><i data-lucide="trending-up" style="width:18px;height:18px"></i></span>Einnahmen
     </button>
     <button class="nav-btn" onclick="showPage('chats',this)">
-      <span class="nav-icon">💬</span>Chats
+      <span class="nav-icon"><i data-lucide="message-circle" style="width:18px;height:18px"></i></span>Chats
     </button>
   </div>
 
@@ -361,7 +362,7 @@ body {
       <div class="chat-header-name" id="chatName"></div>
       <div class="chat-header-status" id="chatStatus"></div>
     </div>
-    <a id="chatTel" href="#" class="chat-tel-btn">📞</a>
+    <a id="chatTel" href="#" class="chat-tel-btn"><i data-lucide="phone" style="width:16px;height:16px"></i></a>
   </div>
   <div class="chat-messages" id="chatMessages"></div>
 </div>
@@ -375,7 +376,6 @@ const CONFIG = {
   REFRESH_MS: 30000
 };
 
-// Price lookup from service name keywords
 const PRICE_MAP = [
   { keys: ['extralang','extra-lang','extra lang'], price: 168 },
   { keys: ['ansatzblondierung','ansatz'], price: 158, note: 'lang' },
@@ -492,11 +492,9 @@ function renderAll() {
 
 // ---- APPOINTMENTS ----
 function renderAppts() {
-  const booked = allRows.filter(r => r.status === 'BOOKED');
   const todayStr = now.toISOString().slice(0,10);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+  const booked = allRows.filter(r => r.status === 'BOOKED' && r.time.slice(0,10) >= todayStr);
 
-  // group by date
   const byDate = {};
   booked.forEach(r => {
     const d = r.time.slice(0,10);
@@ -527,13 +525,14 @@ function renderAppts() {
             </div>
             <div class="card-right">
               <span class="badge ${isPast ? 'b-muted' : 'b-green'}">${isPast ? 'Erledigt' : 'Bestätigt'}</span>
-              <a href="tel:${r.phone}" class="tel-btn" onclick="event.stopPropagation()">📞</a>
+              <a href="tel:${r.phone}" class="tel-btn" onclick="event.stopPropagation()"><i data-lucide="phone" style="width:14px;height:14px"></i></a>
             </div>
           </div>`;
       });
     });
   }
   document.getElementById('apptsContent').innerHTML = html;
+  renderIcons();
 }
 
 // ---- INCOME ----
@@ -561,7 +560,6 @@ function renderIncome() {
   const futureRev = calcRevenue(future);
   const totalRev = pastRev + futureRev;
 
-  // Weekly bar chart — current month weeks
   const weekData = buildWeekData(booked);
 
   let apptList = '';
@@ -626,7 +624,6 @@ function renderIncome() {
 }
 
 function buildWeekData(booked) {
-  const todayStr = now.toISOString().slice(0,10);
   const weeks = ['KW1','KW2','KW3','KW4','KW5'];
   const data = weeks.map((w,i) => {
     const wStart = new Date(now.getFullYear(), now.getMonth(), 1 + i*7);
@@ -665,9 +662,9 @@ function buildChart(weeks) {
 
 // ---- CHATS ----
 function renderChats() {
-  // Get last message per phone
+  const statusRows = allRows.filter(r => r.status && r.status !== '');
   const byPhone = {};
-  allRows.forEach(r => {
+  statusRows.forEach(r => {
     if (!byPhone[r.phone]) byPhone[r.phone] = [];
     byPhone[r.phone].push(r);
   });
@@ -682,6 +679,7 @@ function renderChats() {
     html = '<div class="empty">Keine Chats</div>';
   } else {
     html += '<div class="section-label">Letzte Chats</div>';
+    window._chatData = {};
     lastByPhone.forEach(r => {
       const name = r.customerName || r.phone;
       const preview = r.userMsg || r.botResponse || '';
@@ -689,8 +687,10 @@ function renderChats() {
       const badgeCls = r.status === 'BOOKED' ? 'b-green' : r.status === 'HANDOFF_NEEDED' ? 'b-red' : r.status === 'CANCELLED' ? 'b-muted' : 'b-amber';
       const statusLabel = r.status === 'BOOKED' ? 'Gebucht' : r.status === 'HANDOFF_NEEDED' ? 'HANDOFF' : r.status === 'CANCELLED' ? 'Storniert' : r.status || '—';
       const allMsgs = byPhone[r.phone].sort((a,b) => a.time.localeCompare(b.time));
+      const key = 'chat_' + r.phone.replace(/\D/g,'');
+      window._chatData[key] = {name, phone: r.phone, status: r.status, msgs: allMsgs};
       html += `
-        <div class="card" onclick="openChatFromRows(${JSON.stringify(name)}, ${JSON.stringify(r.phone)}, ${JSON.stringify(r.status)}, ${JSON.stringify(allMsgs)})">
+        <div class="card" onclick="openChatByKey('${key}')">
           <div class="card-info">
             <div class="card-name">${name}</div>
             <div class="card-sub" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${preview.slice(0,50)}</div>
@@ -698,15 +698,22 @@ function renderChats() {
           </div>
           <div class="card-right">
             <span class="badge ${badgeCls}">${statusLabel}</span>
-            <a href="tel:${r.phone}" class="tel-btn" onclick="event.stopPropagation()">📞</a>
+            <a href="tel:${r.phone}" class="tel-btn" onclick="event.stopPropagation()"><i data-lucide="phone" style="width:14px;height:14px"></i></a>
           </div>
         </div>`;
     });
   }
   document.getElementById('chatsContent').innerHTML = html;
+  renderIcons();
 }
 
 // ---- CHAT DETAIL ----
+function openChatByKey(key) {
+  const d = window._chatData?.[key];
+  if (!d) return;
+  openChatFromRows(d.name, d.phone, d.status, d.msgs);
+}
+
 function openChat(name, phone, status, phoneKey) {
   const msgs = allRows.filter(r => r.phone === phoneKey).sort((a,b) => a.time.localeCompare(b.time));
   openChatFromRows(name, phone, status, msgs);
@@ -771,6 +778,14 @@ function relativeTime(iso) {
   if (diff < 86400) return `vor ${Math.floor(diff/3600)} Std.`;
   return `vor ${Math.floor(diff/86400)} Tagen`;
 }
+
+function renderIcons() {
+  if (window.lucide) lucide.createIcons();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.lucide) lucide.createIcons();
+});
 </script>
 </body>
 </html>
