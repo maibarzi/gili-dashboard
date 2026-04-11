@@ -632,14 +632,17 @@ function buildChart(weeks) {
 
 // ---- CHATS ----
 function renderChats() {
-  // Build phone → name map from calendar events
+  // Build phone → name + booked map from calendar
   const calNameByPhone = {};
+  const calBookedPhones = new Set();
   calendarEvents.forEach(e => {
     const desc = e.description || '';
     const phoneMatch = desc.match(/Phone:\s*(\d+)/);
     if (phoneMatch) {
+      const phone = phoneMatch[1];
       const name = (e.summary || '').split(' \u2013 ')[1]?.trim();
-      if (name) calNameByPhone[phoneMatch[1]] = name;
+      if (name) calNameByPhone[phone] = name;
+      calBookedPhones.add(phone);
     }
   });
 
@@ -658,15 +661,18 @@ function renderChats() {
   let html = lastByPhone.length === 0 ? '<div class="empty">Keine Chats</div>' : '<div class="section-label">Letzte Chats</div>';
 
   lastByPhone.forEach(r => {
-    // Use calendar name as fallback if Sheets name is missing
     const name = r.customerName || calNameByPhone[r.phone] || r.phone;
     const preview = r.userMsg || r.botResponse || '';
     const rel = relativeTime(r.time);
-    const badgeCls = r.status === 'BOOKED' ? 'b-green' : r.status === 'HANDOFF_NEEDED' ? 'b-red' : r.status === 'CANCELLED' ? 'b-muted' : 'b-amber';
-    const statusLabel = r.status === 'BOOKED' ? 'Gebucht' : r.status === 'HANDOFF_NEEDED' ? 'HANDOFF' : r.status === 'CANCELLED' ? 'Storniert' : r.status || '—';
+
+    // Calendar = source of truth for BOOKED status
+    const effectiveStatus = calBookedPhones.has(r.phone) ? 'BOOKED' : r.status;
+    const badgeCls = effectiveStatus === 'BOOKED' ? 'b-green' : effectiveStatus === 'HANDOFF_NEEDED' ? 'b-red' : effectiveStatus === 'CANCELLED' ? 'b-muted' : 'b-amber';
+    const statusLabel = effectiveStatus === 'BOOKED' ? 'Gebucht' : effectiveStatus === 'HANDOFF_NEEDED' ? 'HANDOFF' : effectiveStatus === 'CANCELLED' ? 'Storniert' : effectiveStatus || '—';
+
     const allMsgs = byPhone[r.phone].sort((a,b) => a.time.localeCompare(b.time));
     const key = 'chat_' + r.phone.replace(/\D/g,'');
-    window._chatData[key] = { name, phone: r.phone, status: r.status, msgs: allMsgs };
+    window._chatData[key] = { name, phone: r.phone, status: effectiveStatus, msgs: allMsgs };
     html += `
       <div class="card" onclick="openChatByKey('${key}')">
         <div class="card-info">
