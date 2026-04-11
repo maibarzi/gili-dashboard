@@ -632,6 +632,17 @@ function buildChart(weeks) {
 
 // ---- CHATS ----
 function renderChats() {
+  // Build phone → name map from calendar events
+  const calNameByPhone = {};
+  calendarEvents.forEach(e => {
+    const desc = e.description || '';
+    const phoneMatch = desc.match(/Phone:\s*(\d+)/);
+    if (phoneMatch) {
+      const name = (e.summary || '').split(' \u2013 ')[1]?.trim();
+      if (name) calNameByPhone[phoneMatch[1]] = name;
+    }
+  });
+
   const statusRows = allRows.filter(r => r.status && r.status !== '');
   const byPhone = {};
   statusRows.forEach(r => {
@@ -647,7 +658,8 @@ function renderChats() {
   let html = lastByPhone.length === 0 ? '<div class="empty">Keine Chats</div>' : '<div class="section-label">Letzte Chats</div>';
 
   lastByPhone.forEach(r => {
-    const name = r.customerName || r.phone;
+    // Use calendar name as fallback if Sheets name is missing
+    const name = r.customerName || calNameByPhone[r.phone] || r.phone;
     const preview = r.userMsg || r.botResponse || '';
     const rel = relativeTime(r.time);
     const badgeCls = r.status === 'BOOKED' ? 'b-green' : r.status === 'HANDOFF_NEEDED' ? 'b-red' : r.status === 'CANCELLED' ? 'b-muted' : 'b-amber';
