@@ -492,7 +492,6 @@ function renderAll() {
 // ---- APPOINTMENTS ----
 function renderAppts() {
   const byDate = {};
-
   calendarEvents.forEach(event => {
     const start = event.start?.dateTime || event.start?.date || '';
     const date = start.slice(0,10);
@@ -509,7 +508,6 @@ function renderAppts() {
 
   const sorted = Object.keys(byDate).sort();
   let html = '';
-
   if (sorted.length === 0) {
     html = '<div class="empty">Keine Termine gefunden</div>';
   } else {
@@ -561,7 +559,9 @@ function renderIncome() {
   const totalRev = pastRev + futureRev;
 
   let apptList = '';
-  [...past, ...future].sort((a,b) => (a.start?.dateTime||a.start?.date).localeCompare(b.start?.dateTime||b.start?.date)).forEach(e => {
+  [...past, ...future].sort((a,b) =>
+    (a.start?.dateTime||a.start?.date).localeCompare(b.start?.dateTime||b.start?.date)
+  ).forEach(e => {
     const start = e.start?.dateTime || e.start?.date;
     const svc = (e.summary || '').split(' \u2013 ')[0];
     const name = (e.summary || '').split(' \u2013 ')[1] || '—';
@@ -643,35 +643,32 @@ function renderChats() {
     .map(([phone, rows]) => rows.sort((a,b) => b.time.localeCompare(a.time))[0])
     .sort((a,b) => b.time.localeCompare(a.time));
 
-  let html = '';
-  if (lastByPhone.length === 0) {
-    html = '<div class="empty">Keine Chats</div>';
-  } else {
-    html += '<div class="section-label">Letzte Chats</div>';
-    window._chatData = {};
-    lastByPhone.forEach(r => {
-      const name = r.customerName || r.phone;
-      const preview = r.userMsg || r.botResponse || '';
-      const rel = relativeTime(r.time);
-      const badgeCls = r.status === 'BOOKED' ? 'b-green' : r.status === 'HANDOFF_NEEDED' ? 'b-red' : r.status === 'CANCELLED' ? 'b-muted' : 'b-amber';
-      const statusLabel = r.status === 'BOOKED' ? 'Gebucht' : r.status === 'HANDOFF_NEEDED' ? 'HANDOFF' : r.status === 'CANCELLED' ? 'Storniert' : r.status || '—';
-      const allMsgs = byPhone[r.phone].sort((a,b) => a.time.localeCompare(b.time));
-      const key = 'chat_' + r.phone.replace(/\D/g,'');
-      window._chatData[key] = { name, phone: r.phone, status: r.status, msgs: allMsgs };
-      html += `
-        <div class="card" onclick="openChatByKey('${key}')">
-          <div class="card-info">
-            <div class="card-name">${name}</div>
-            <div class="card-sub" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${preview.slice(0,50)}</div>
-            <div class="card-time" style="color:var(--muted)">${rel}</div>
-          </div>
-          <div class="card-right">
-            <span class="badge ${badgeCls}">${statusLabel}</span>
-            <a href="tel:${r.phone}" class="tel-btn" onclick="event.stopPropagation()"><i data-lucide="phone" style="width:14px;height:14px"></i></a>
-          </div>
-        </div>`;
-    });
-  }
+  window._chatData = {};
+  let html = lastByPhone.length === 0 ? '<div class="empty">Keine Chats</div>' : '<div class="section-label">Letzte Chats</div>';
+
+  lastByPhone.forEach(r => {
+    const name = r.customerName || r.phone;
+    const preview = r.userMsg || r.botResponse || '';
+    const rel = relativeTime(r.time);
+    const badgeCls = r.status === 'BOOKED' ? 'b-green' : r.status === 'HANDOFF_NEEDED' ? 'b-red' : r.status === 'CANCELLED' ? 'b-muted' : 'b-amber';
+    const statusLabel = r.status === 'BOOKED' ? 'Gebucht' : r.status === 'HANDOFF_NEEDED' ? 'HANDOFF' : r.status === 'CANCELLED' ? 'Storniert' : r.status || '—';
+    const allMsgs = byPhone[r.phone].sort((a,b) => a.time.localeCompare(b.time));
+    const key = 'chat_' + r.phone.replace(/\D/g,'');
+    window._chatData[key] = { name, phone: r.phone, status: r.status, msgs: allMsgs };
+    html += `
+      <div class="card" onclick="openChatByKey('${key}')">
+        <div class="card-info">
+          <div class="card-name">${name}</div>
+          <div class="card-sub" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${preview.slice(0,50)}</div>
+          <div class="card-time" style="color:var(--muted)">${rel}</div>
+        </div>
+        <div class="card-right">
+          <span class="badge ${badgeCls}">${statusLabel}</span>
+          <a href="tel:${r.phone}" class="tel-btn" onclick="event.stopPropagation()"><i data-lucide="phone" style="width:14px;height:14px"></i></a>
+        </div>
+      </div>`;
+  });
+
   document.getElementById('chatsContent').innerHTML = html;
   renderIcons();
 }
