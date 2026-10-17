@@ -14,5 +14,8 @@ psql=(psql -h "$dir" -p 54329 -U postgres -d postgres -v ON_ERROR_STOP=1 -q)
 "${psql[@]}" -f "$here/stub_supabase.sql"
 for f in "$here"/../migrations/*.sql; do echo "== $(basename "$f")"; "${psql[@]}" -f "$f" 2>&1 | grep -v 'not found, skipped' || true; done
 "${psql[@]}" -tAc "select 'seed: ' || count(*) || ' services for ' || string_agg(distinct s.name, ',') from services v join salons s on s.id = v.salon_id"
+# Extra SQL files given as arguments (e.g. a generated import) run after the migrations.
+for f in "$@"; do echo "== $(basename "$f")"; "${psql[@]}" -f "$f"; done
+[ -n "${CHECK_SQL:-}" ] && "${psql[@]}" -c "$CHECK_SQL"
 echo "== rls_test.sql"
 "${psql[@]}" -f "$here/rls_test.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  /  /'

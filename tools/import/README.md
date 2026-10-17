@@ -16,6 +16,18 @@ node tools/import/dry-run.mjs \
   --salon Florence --out /tmp/import-florence
 ```
 
+Then, to load it into the database (tables from `supabase/migrations`):
+
+```bash
+node tools/import/to-sql.mjs --data /tmp/import-florence/data.json \
+  --salon-slug florence-demo --out /tmp/import-florence/import.sql
+```
+
+Paste `import.sql` into the Supabase SQL editor. It is one transaction and
+can be run again safely: existing contacts, people, appointments and messages
+are skipped. Chat rows that greet as another salon are left out. Test it
+locally first with `supabase/tests/run.sh /tmp/import-florence/import.sql`.
+
 - Calendar: Google Calendar → Settings → the salon calendar → Export.
 - Sheet: File → Download → CSV.
 - `services.<salon>.json`: price list with `reinvite_weeks` per service

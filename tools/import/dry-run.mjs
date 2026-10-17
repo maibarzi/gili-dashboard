@@ -218,10 +218,9 @@ for (const r of rows) {
   if (!phone) { rowsNoPhone++; continue; }
   const bot = r[C.bot] || '';
   const greet = bot.replace(/\*/g, '').match(/(?:Welcome to|Willkommen bei|Witamy w)\s+([^!🌸💛\n]+?)\s*[!🌸💛\n]/u);
-  if (greet && args.salon && !greet[1].toLowerCase().includes(args.salon.toLowerCase())) {
-    otherSalon.set(greet[1].trim(), (otherSalon.get(greet[1].trim()) || 0) + 1);
-  }
-  const base = { phone, at, status: r[C.status] || '', profile_name: (r[C.name] || '').trim() };
+  const foreign = !!(greet && args.salon && !greet[1].toLowerCase().includes(args.salon.toLowerCase()));
+  if (foreign) otherSalon.set(greet[1].trim(), (otherSalon.get(greet[1].trim()) || 0) + 1);
+  const base = { phone, at, status: r[C.status] || '', profile_name: (r[C.name] || '').trim(), other_salon: foreign };
   if (r[C.user]) messages.push({ ...base, direction: 'in', body: r[C.user] });
   if (bot) messages.push({ ...base, direction: 'out', body: bot.replace(/\[\[STATUS:\w+\]\]/g, '').trim() });
 }
