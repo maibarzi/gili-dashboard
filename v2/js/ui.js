@@ -137,3 +137,10 @@ export function toast(text) {
 export function toggle(field, checked, disabled = false) {
   return `<label class="switch"><input type="checkbox" data-field="${field}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}><span></span></label>`;
 }
+
+// How the client will see a template message in WhatsApp. Read-only: template
+// texts are approved by Meta and can't be edited here.
+export const messagePreview = text => `<div class="bubble-preview">
+  <div class="bubble-preview-label">${icon('lock', 10)} Vorschau</div>
+  <div class="bubble-preview-text">${esc(text)}</div>
+</div>`;

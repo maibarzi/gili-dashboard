@@ -1,5 +1,5 @@
 import { esc, badge, euro, icon, relative, formatDate, formatWhen, formatTime, overlayHeader, contactButtons,
-  stateBadge, toggle, toast, KIND_LABELS, RESULT_META, QUEUE_META, CONV_META, dayKey } from '../ui.js';
+  stateBadge, toggle, toast, messagePreview, KIND_LABELS, RESULT_META, QUEUE_META, CONV_META, dayKey } from '../ui.js';
 
 export async function render(ctx) {
   const { client, summary: s, pending, timeline, conversation } = await ctx.api.getClient(ctx.salonId, ctx.params[0]);
@@ -24,7 +24,7 @@ export async function render(ctx) {
           <div><div class="panel-title">${KIND_LABELS[p.kind]} · ${formatWhen(p.at)}</div><div class="panel-sub">${esc(p.reason)}</div></div>
           ${badge(...QUEUE_META[p.status])}
         </div>
-        <div class="bubble-preview">${esc(p.preview)}</div>
+        ${messagePreview(p.preview)}
         ${canQueue ? `<div class="panel-actions">
           ${p.status === 'skipped'
             ? `<button class="btn-ghost" data-queue="reset" data-key="${p.key}">Rückgängig</button>`

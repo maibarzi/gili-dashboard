@@ -125,8 +125,10 @@ a { color: inherit; text-decoration: none; }
 .panel-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .panel-note { font-size: 12px; color: var(--muted); padding: 10px 0; }
 .panel-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 0 0 10px; }
-.bubble-preview { background: var(--warm-white); border: 1px solid var(--border); border-radius: 4px 12px 12px 12px; padding: 9px 12px; font-size: 12px; line-height: 1.5; margin: 0 0 10px; white-space: pre-line; }
+.bubble-preview { background: #ECE5DD; border-radius: 10px; padding: 8px 10px 10px; margin: 0 0 10px; user-select: none; }
 .panel-row.stack .bubble-preview { margin: 0; }
+.bubble-preview-label { font-size: 10px; color: #6B6259; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+.bubble-preview-text { background: white; border-radius: 4px 12px 12px 12px; padding: 8px 11px; font-size: 12px; line-height: 1.5; white-space: pre-line; max-width: 92%; box-shadow: 0 1px 1px rgba(0,0,0,0.08); }
 .inline-field { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); flex-shrink: 0; }
 .inline-field input[type=number] { width: 56px; text-align: center; }
 input[type=number], input[type=date], select, .text-input { border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; background: white; outline: none; font-size: 13px; color: var(--dark); }

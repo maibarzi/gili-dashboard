@@ -1,4 +1,4 @@
-import { esc, overlayHeader, toggle, toast, DAYS_SHORT, KIND_LABELS } from '../ui.js';
+import { esc, overlayHeader, toggle, toast, messagePreview, DAYS_SHORT, KIND_LABELS } from '../ui.js';
 import { ROLE_LABELS } from '../auth.js';
 
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -65,7 +65,7 @@ export async function render(ctx) {
 
       <div class="section-label">Nachrichtenvorlagen</div>
       <div class="panel">
-        ${Object.entries(templates).map(([k, t]) => `<div class="panel-row stack"><div class="panel-title">${KIND_LABELS[k]}</div><div class="bubble-preview">${esc(t)}</div></div>`).join('')}
+        ${Object.entries(templates).map(([k, t]) => `<div class="panel-row stack"><div class="panel-title">${KIND_LABELS[k]}</div>${messagePreview(t)}</div>`).join('')}
         <div class="panel-note">Vorlagen müssen von WhatsApp freigegeben werden. Änderungswünsche bitte direkt an Gili.</div>
       </div>
 
