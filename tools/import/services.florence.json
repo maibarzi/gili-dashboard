@@ -1,0 +1,158 @@
+{
+  "salon": "Florence Beauty Salon (Demo)",
+  "timezone": "Europe/Vienna",
+  "services": [
+    {
+      "name": "Waschen, Schneiden & Föhnen (kurz)",
+      "price": 70,
+      "duration_min": 60,
+      "reinvite_weeks": 6
+    },
+    {
+      "name": "Waschen, Schneiden & Föhnen (mittel)",
+      "price": 80,
+      "duration_min": 60,
+      "reinvite_weeks": 6
+    },
+    {
+      "name": "Waschen, Schneiden & Föhnen (lang)",
+      "price": 100,
+      "duration_min": 60,
+      "reinvite_weeks": 6
+    },
+    {
+      "name": "Spezielles Haarschnitt-Paket inkl. Pflege",
+      "price": 120,
+      "duration_min": 70,
+      "reinvite_weeks": 6
+    },
+    {
+      "name": "Damenhaarschnitt (kurz/trocken)",
+      "price": 30,
+      "duration_min": 30,
+      "reinvite_weeks": 6
+    },
+    {
+      "name": "Waschen, Schneiden & Föhnen (bis 10 Jahre)",
+      "price": 30,
+      "duration_min": 30,
+      "reinvite_weeks": 8
+    },
+    {
+      "name": "Herrenhaarschnitt",
+      "price": 35,
+      "price_from": true,
+      "duration_min": 60,
+      "reinvite_weeks": 4
+    },
+    {
+      "name": "Trockenhaarschnitt",
+      "price": 35,
+      "price_from": true,
+      "duration_min": 60,
+      "reinvite_weeks": 4
+    },
+    {
+      "name": "Bart trimmen & rasieren",
+      "price": 35,
+      "price_from": true,
+      "duration_min": 60,
+      "reinvite_weeks": 4
+    },
+    {
+      "name": "Ansatzblondierung & Föhnen (kurz)",
+      "price": 138,
+      "duration_min": 135,
+      "reinvite_weeks": 6
+    },
+    {
+      "name": "Ansatzblondierung & Föhnen (mittel)",
+      "price": 148,
+      "duration_min": 150,
+      "reinvite_weeks": 6
+    },
+    {
+      "name": "Ansatzblondierung & Föhnen (lang)",
+      "price": 158,
+      "duration_min": 150,
+      "reinvite_weeks": 6
+    },
+    {
+      "name": "Ansatzblondierung & Föhnen (extralang)",
+      "price": 168,
+      "duration_min": 150,
+      "reinvite_weeks": 6
+    },
+    {
+      "name": "Komplettfarbe",
+      "price": 115,
+      "price_from": true,
+      "duration_min": 90,
+      "reinvite_weeks": 6
+    },
+    {
+      "name": "Strähnen ganzer Kopf",
+      "price": 115,
+      "price_from": true,
+      "duration_min": 120,
+      "reinvite_weeks": 8
+    },
+    {
+      "name": "Blondierung",
+      "price": 115,
+      "price_from": true,
+      "duration_min": 120,
+      "reinvite_weeks": 8
+    },
+    {
+      "name": "Augenbrauen färben",
+      "price": 15,
+      "duration_min": 15,
+      "reinvite_weeks": 4
+    },
+    {
+      "name": "Augenbrauen zupfen",
+      "price": 15,
+      "duration_min": 15,
+      "reinvite_weeks": 4
+    },
+    {
+      "name": "Augenbrauen färben & zupfen",
+      "price": 25,
+      "duration_min": 20,
+      "reinvite_weeks": 4
+    },
+    {
+      "name": "Augenbrauen & Wimpern färben",
+      "price": 25,
+      "duration_min": 20,
+      "reinvite_weeks": 4
+    },
+    {
+      "name": "Augenbrauen färben & zupfen & Wimpern",
+      "price": 35,
+      "duration_min": 20,
+      "reinvite_weeks": 4
+    },
+    {
+      "name": "Wimpern färben",
+      "price": 15,
+      "duration_min": 15,
+      "reinvite_weeks": 4
+    },
+    {
+      "name": "Make-Up",
+      "price": 100,
+      "price_from": true,
+      "duration_min": 60,
+      "reinvite_weeks": null
+    },
+    {
+      "name": "Haarkur",
+      "price": 30,
+      "duration_min": 30,
+      "reinvite_weeks": null
+    }
+  ],
+  "aliases": {}
+}
