@@ -31,6 +31,8 @@ The WhatsApp ↔ bot connection lives in **n8n** (maibarzilay.app.n8n.cloud), no
 - `manifest.json`: PWA manifest (installable on phone).
 - `sw.js`: service worker file. **Currently not registered** in `index.html`, so it has no effect.
 
+- `v2/`: prototype of the next dashboard (client management + automated messages), demo data only, not connected to anything. See `v2/README.md`. Open at `/v2/`.
+
 ## Data sources (`CONFIG` in `index.html`)
 
 - **Google Sheet** `SHEET_ID` / tab `SHEET_NAME`, columns A–G:
