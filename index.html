@@ -159,6 +159,9 @@ body {
   transition: background 0.15s;
 }
 .tel-btn:active { background: #9FE1CB; }
+.contact-btns { display: flex; gap: 6px; }
+.wa-btn { background: #DCF8C6; color: #128C7E; }
+.wa-btn:active { background: #B8EFA0; }
 
 /* ALERT CARD */
 .alert-card {
@@ -355,7 +358,10 @@ body {
       <div class="chat-header-name" id="chatName"></div>
       <div class="chat-header-status" id="chatStatus"></div>
     </div>
-    <a id="chatTel" href="#" class="chat-tel-btn"><i data-lucide="phone" style="width:16px;height:16px"></i></a>
+    <div class="contact-btns">
+      <a id="chatWa" href="#" target="_blank" rel="noopener" class="chat-tel-btn" aria-label="WhatsApp"></a>
+      <a id="chatTel" href="#" class="chat-tel-btn"><i data-lucide="phone" style="width:16px;height:16px"></i></a>
+    </div>
   </div>
   <div class="chat-messages" id="chatMessages"></div>
 </div>
@@ -515,7 +521,7 @@ function renderAppts() {
       html += `<div class="section-label">${formatDateLabel(date)}</div>`;
       byDate[date].forEach(r => {
         const t = formatTime(r.start);
-        const telLink = r.phone ? `<a href="tel:${r.phone}" class="tel-btn" onclick="event.stopPropagation()"><i data-lucide="phone" style="width:14px;height:14px"></i></a>` : '';
+        const telLink = contactButtons(r.phone);
         html += `
           <div class="card">
             <div class="card-info">
@@ -682,7 +688,7 @@ function renderChats() {
         </div>
         <div class="card-right">
           <span class="badge ${badgeCls}">${statusLabel}</span>
-          <a href="tel:${r.phone}" class="tel-btn" onclick="event.stopPropagation()"><i data-lucide="phone" style="width:14px;height:14px"></i></a>
+          ${contactButtons(r.phone)}
         </div>
       </div>`;
   });
@@ -702,6 +708,9 @@ function openChatFromRows(name, phone, status, msgs) {
   document.getElementById('chatName').textContent = name;
   document.getElementById('chatStatus').textContent = status;
   document.getElementById('chatTel').href = 'tel:' + phone;
+  const wa = document.getElementById('chatWa');
+  wa.href = waLink(phone);
+  wa.innerHTML = WA_ICON.replace(/SIZE/g, 16);
   const container = document.getElementById('chatMessages');
   let html = '';
   msgs.forEach(r => {
@@ -722,6 +731,24 @@ function closeChat() {
 }
 
 // ---- HELPERS ----
+const WA_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" style="width:SIZEpx;height:SIZEpx"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.08c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.19 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.69.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35zM12.05 21.5h-.01a9.4 9.4 0 0 1-4.8-1.31l-.34-.2-3.57.94.95-3.48-.22-.36a9.4 9.4 0 0 1-1.44-5.02c0-5.2 4.23-9.43 9.44-9.43 2.52 0 4.89.98 6.67 2.77a9.37 9.37 0 0 1 2.76 6.67c0 5.2-4.23 9.43-9.44 9.43zm8.03-17.46A11.27 11.27 0 0 0 12.05.72C5.79.72.7 5.81.7 12.07c0 2 .52 3.95 1.52 5.67L.6 23.6l6-1.57a11.33 11.33 0 0 0 5.43 1.38h.01c6.25 0 11.35-5.09 11.35-11.35 0-3.03-1.18-5.88-3.32-8.02z"/></svg>';
+
+// wa.me expects the international number as digits only (e.g. 43664...)
+function waLink(phone) {
+  let digits = (phone || '').replace(/\D/g, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  else if (digits.startsWith('0')) digits = '43' + digits.slice(1);
+  return 'https://wa.me/' + digits;
+}
+
+function contactButtons(phone) {
+  if (!phone) return '';
+  return `<div class="contact-btns">
+    <a href="${waLink(phone)}" target="_blank" rel="noopener" class="tel-btn wa-btn" aria-label="WhatsApp" onclick="event.stopPropagation()">${WA_ICON.replace(/SIZE/g, 14)}</a>
+    <a href="tel:${phone}" class="tel-btn" onclick="event.stopPropagation()"><i data-lucide="phone" style="width:14px;height:14px"></i></a>
+  </div>`;
+}
+
 function extractService(botResponse) {
   if (!botResponse) return '';
   const m = botResponse.match(/✂️\s*(.+)/);
