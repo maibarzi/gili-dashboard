@@ -33,6 +33,13 @@
       "reinvite_weeks": 6
     },
     {
+      "name": "Haarschnitt",
+      "price": 45,
+      "duration_min": 45,
+      "reinvite_weeks": 6,
+      "note": "invented for the demo"
+    },
+    {
       "name": "Waschen, Schneiden & Föhnen (bis 10 Jahre)",
       "price": 30,
       "duration_min": 30,
@@ -103,6 +110,13 @@
       "price_from": true,
       "duration_min": 120,
       "reinvite_weeks": 8
+    },
+    {
+      "name": "Balayage",
+      "price": 160,
+      "duration_min": 180,
+      "reinvite_weeks": 10,
+      "note": "invented for the demo"
     },
     {
       "name": "Augenbrauen färben",

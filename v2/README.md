@@ -65,6 +65,16 @@ changing one line in `api/index.js`.
 | `getSettings`, `updateSettings` | `automation_settings` (one row per salon) |
 | `templates` | `message_templates` (with Meta template id) |
 
+**Contacts and people.** A `contact` is one WhatsApp number; the automated
+messages go there. A `person` (`clients` above) is someone booked from that
+number, by name: a mother booking for her daughter is one contact with two
+people, each with their own visits and reinvite date. Appointments belong to a
+person. Rules that limit how often we write (min gap, one reminder) apply per
+contact, so one number never gets several invitations at once: if several
+people under one contact are due, they go into one message. The prototype
+still shows one person per number; the import (`tools/import`) already groups
+this way.
+
 Every table carries `salon_id`; row level security limits each user to the
 salons in their memberships. Staff gets read access only, enforced in the
 database, not just hidden in the UI.

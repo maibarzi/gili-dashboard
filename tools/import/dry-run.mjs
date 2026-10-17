@@ -226,20 +226,24 @@ for (const r of rows) {
   if (bot) messages.push({ ...base, direction: 'out', body: bot.replace(/\[\[STATUS:\w+\]\]/g, '').trim() });
 }
 
-// Clients = one per phone number (the WhatsApp contact).
-const clients = new Map();
-const client = phone => {
-  if (!clients.has(phone)) clients.set(phone, { phone, names: new Map(), profile_names: new Set(), appts: [], msgs: [] });
-  return clients.get(phone);
+// Contact = one WhatsApp number (where messages go). Person = someone booked
+// from that number, by name: a mother booking for her daughter is one contact
+// with two people, each with their own visits and reinvite date.
+const contacts = new Map();
+const contact = phone => {
+  if (!contacts.has(phone)) contacts.set(phone, { phone, people: new Map(), profile_names: new Set(), msgs: [] });
+  return contacts.get(phone);
 };
+const personKey = name => norm(name || '').normalize('NFKC');
 const usable = appointments.filter(a => !a.skip);
 usable.forEach(a => {
-  const c = client(a.phone);
-  c.appts.push(a);
-  c.names.set(a.name, (c.names.get(a.name) || 0) + 1);
+  const c = contact(a.phone);
+  const k = personKey(a.name);
+  if (!c.people.has(k)) c.people.set(k, { name: a.name, appts: [] });
+  c.people.get(k).appts.push(a);
 });
 messages.forEach(m => {
-  const c = client(m.phone);
+  const c = contact(m.phone);
   c.msgs.push(m);
   if (m.profile_name && normalizePhone(m.profile_name) !== m.phone) c.profile_names.add(m.profile_name);
 });
@@ -249,22 +253,17 @@ const bookedRows = messages.filter(m => m.status === 'BOOKED' && m.direction ===
 const bookedMatched = bookedRows.filter(m =>
   usable.some(a => a.phone === m.phone && a.created_at && Math.abs(+a.created_at - +m.at) < 15 * 60000));
 
-const summaries = [...clients.values()].map(c => {
-  const appts = c.appts.filter(a => a.status === 'booked').sort((a, b) => a.starts_at - b.starts_at);
+function personSummary(p) {
+  const appts = p.appts.filter(a => a.status === 'booked').sort((a, b) => a.starts_at - b.starts_at);
   const past = appts.filter(a => a.starts_at <= NOW);
   const future = appts.filter(a => a.starts_at > NOW);
   const last = past.at(-1) || null;
-  const names = [...c.names.entries()].sort((a, b) => b[1] - a[1]).map(([n]) => n);
   let reinvite = null;
   if (last && !future.length && !last.no_reinvite) {
-    const weeks = last.reinvite_weeks || DEFAULT_REINVITE_WEEKS;
-    reinvite = new Date(+last.starts_at + weeks * 7 * DAY);
+    reinvite = new Date(+last.starts_at + (last.reinvite_weeks || DEFAULT_REINVITE_WEEKS) * 7 * DAY);
   }
   return {
-    phone: c.phone,
-    name: names[0] || [...c.profile_names][0] || null,
-    booking_names: names,
-    whatsapp_names: [...c.profile_names],
+    name: p.name,
     visits: past.length,
     first_visit: past[0]?.starts_at || null,
     last_visit: last?.starts_at || null,
@@ -272,16 +271,43 @@ const summaries = [...clients.values()].map(c => {
     next_appointment: future[0]?.starts_at || null,
     revenue: past.reduce((s, a) => s + (a.price || 0), 0),
     revenue_is_minimum: past.some(a => a.price_is_minimum),
+    reinvite_due: reinvite,
+  };
+}
+
+// Latin names one letter apart under the same number (Mili / Milli) are probably
+// the same person typed differently. Only a hint; the owner merges in the UI.
+function lev(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+
+const summaries = [...contacts.values()].map(c => {
+  const people = [...c.people.values()].map(personSummary).sort((a, b) => (b.last_visit || 0) - (a.last_visit || 0));
+  const similar = [];
+  people.forEach((a, i) => people.slice(i + 1).forEach(b => {
+    const x = personKey(a.name), y = personKey(b.name);
+    if (/^[a-z]+$/.test(x) && /^[a-z]+$/.test(y) && lev(x, y) <= 1) similar.push([a.name, b.name]);
+  }));
+  return {
+    phone: c.phone,
+    people,
+    similar_names: similar,
+    whatsapp_names: [...c.profile_names],
     chat_messages: c.msgs.length,
     last_chat: c.msgs.length ? new Date(Math.max(...c.msgs.map(m => +m.at))) : null,
-    reinvite_due: reinvite,
+    last_visit: people.map(p => p.last_visit).filter(Boolean).sort((a, b) => b - a)[0] || null,
   };
 }).sort((a, b) => (b.last_visit || 0) - (a.last_visit || 0));
 
 // ---------- report ----------
 
 const skipped = appointments.filter(a => a.skip);
-const multiName = summaries.filter(s => s.booking_names.length > 1);
+const allPeople = summaries.flatMap(s => s.people);
+const multiPeople = summaries.filter(s => s.people.length > 1);
 const range = list => { const t = list.filter(Boolean).map(Number); return t.length ? `${fmtDate(new Date(Math.min(...t)))} – ${fmtDate(new Date(Math.max(...t)))}` : '—'; };
 const equalsCount = issues.filter(i => i.kind === 'equals_prefix').length;
 
@@ -295,9 +321,10 @@ md.push(`| → skipped | ${skipped.length} |`);
 md.push(`| Chat rows in sheet | ${rows.length} (${range(messages.map(m => m.at))}) |`);
 md.push(`| → rows without phone number | ${rowsNoPhone} |`);
 md.push(`| → rows with unreadable time | ${rowsBadTime} |`);
-md.push(`| Clients (distinct phone numbers) | ${summaries.length} |`);
-md.push(`| → with at least one visit | ${summaries.filter(s => s.visits).length} |`);
-md.push(`| → chatted but never booked | ${summaries.filter(s => !s.visits && !s.next_appointment).length} |`);
+md.push(`| Contacts (WhatsApp numbers) | ${summaries.length} |`);
+md.push(`| → with at least one booking | ${summaries.filter(s => s.people.length).length} |`);
+md.push(`| → chatted but never booked | ${summaries.filter(s => !s.people.length).length} |`);
+md.push(`| People (booked under a contact) | ${allPeople.length} |`);
 md.push(`| Chats marked BOOKED that match a calendar event | ${bookedMatched.length} of ${bookedRows.length} |`, '');
 
 md.push('## Needs attention', '');
@@ -311,9 +338,10 @@ if (unknownServices.size) {
   [...unknownServices].sort((a, b) => b[1] - a[1]).forEach(([n, k]) => md.push(`| ${n} | ${k} |`));
   md.push('');
 }
-if (multiName.length) {
-  md.push(`### One phone number, several names (${multiName.length})`, '', 'Bookings for family members or friends from the same WhatsApp number. Decide: one client with several names, or one contact with several people.', '', '| Phone | Names used in bookings |', '|---|---|');
-  multiName.forEach(s => md.push(`| ${maskPhone(s.phone)} | ${s.booking_names.join(', ')} |`));
+const similar = summaries.filter(s => s.similar_names.length);
+if (similar.length) {
+  md.push('### Possibly the same person spelled differently', '', 'Imported as separate people. The owner can merge them later.', '', '| Contact | Names |', '|---|---|');
+  similar.forEach(s => s.similar_names.forEach(([a, b]) => md.push(`| ${maskPhone(s.phone)} | ${a} / ${b} |`)));
   md.push('');
 }
 if (otherSalon.size) {
@@ -324,15 +352,22 @@ if (otherSalon.size) {
 md.push('### Data quality in the bot workflow', '');
 if (equalsCount) md.push(`- ${equalsCount} calendar events start with a stray \`=\` in summary or description (n8n expression written as \`=={{ … }}\`). The import strips it; the workflow should be fixed.`);
 if (appointments.some(a => a.stylist)) md.push(`- Some events carry a stylist (\`@ Name\` in the summary or \`Stylist:\` in the description) and no phone number. Two booking formats are in use.`);
-md.push(`- \`customer_name\` in the sheet is the WhatsApp profile name, not the name given in the chat. The calendar name is used for clients; profile names are kept for reference.`);
+md.push(`- \`customer_name\` in the sheet is the WhatsApp profile name, not the name given in the chat. The calendar name is used for people; profile names are kept on the contact.`);
 md.push(`- \`STATUS\` and \`SERVICE\` in the sheet are guessed from the bot's text by keywords, so they are not reliable. The import uses the calendar for bookings and services.`, '');
 
-md.push(`## Clients (${summaries.length})`, '', `Reinvite date = last visit + weeks for that service (default ${DEFAULT_REINVITE_WEEKS}). Only shown when there is no upcoming appointment.`, '');
-md.push('| Name | Phone | Visits | Last visit | Services | Next | Revenue | Chat msgs | Reinvite due |', '|---|---|---|---|---|---|---|---|---|');
-summaries.forEach(s => md.push(`| ${s.name || '—'}${s.booking_names.length > 1 ? ` (+${s.booking_names.length - 1})` : ''} | ${maskPhone(s.phone)} | ${s.visits} | ${fmtDate(s.last_visit)} | ${s.last_services.join(' + ') || '—'} | ${fmtDate(s.next_appointment)} | ${s.revenue ? `€${s.revenue}${s.revenue_is_minimum ? '+' : ''}` : '—'} | ${s.chat_messages} | ${s.reinvite_due ? fmtDate(s.reinvite_due) + (s.reinvite_due < NOW ? ' (overdue)' : '') : '—'} |`));
+md.push(`## People (${allPeople.length})`, '', `Grouped by contact. Reinvite date = last visit + weeks for that service (default ${DEFAULT_REINVITE_WEEKS}), only when the person has no upcoming appointment. Messages go to the contact's number.`, '');
+md.push('| Contact | Person | Visits | Last visit | Services | Next | Revenue | Reinvite due |', '|---|---|---|---|---|---|---|---|');
+summaries.filter(s => s.people.length).forEach(s => s.people.forEach((p, i) => md.push(
+  `| ${i === 0 ? `${maskPhone(s.phone)}${s.people.length > 1 ? ` (${s.people.length})` : ''}` : ''} | ${p.name} | ${p.visits} | ${fmtDate(p.last_visit)} | ${p.last_services.join(' + ') || '—'} | ${fmtDate(p.next_appointment)} | ${p.revenue ? `€${p.revenue}${p.revenue_is_minimum ? '+' : ''}` : '—'} | ${p.reinvite_due ? fmtDate(p.reinvite_due) + (p.reinvite_due < NOW ? ' (overdue)' : '') : '—'} |`)));
+md.push('');
+const chatOnly = summaries.filter(s => !s.people.length);
+if (chatOnly.length) {
+  md.push(`## Contacts without bookings (${chatOnly.length})`, '', 'Chatted with the bot but never booked. Imported as contacts with chat history.', '', '| Contact | WhatsApp name | Chat msgs | Last chat |', '|---|---|---|---|');
+  chatOnly.forEach(s => md.push(`| ${maskPhone(s.phone)} | ${s.whatsapp_names.join(', ') || '—'} | ${s.chat_messages} | ${fmtDate(s.last_chat)} |`));
+}
 
 mkdirSync(args.out, { recursive: true });
 writeFileSync(join(args.out, 'report.md'), md.join('\n') + '\n');
-writeFileSync(join(args.out, 'data.json'), JSON.stringify({ clients: summaries, appointments: usable, skipped, messages }, null, 2));
+writeFileSync(join(args.out, 'data.json'), JSON.stringify({ contacts: summaries, appointments: usable, skipped, messages }, null, 2));
 console.log(`report: ${join(args.out, 'report.md')}`);
-console.log(`clients ${summaries.length}, appointments ${usable.length} (+${skipped.length} skipped), messages ${messages.length}`);
+console.log(`contacts ${summaries.length}, people ${allPeople.length}, appointments ${usable.length} (+${skipped.length} skipped), messages ${messages.length}`);
