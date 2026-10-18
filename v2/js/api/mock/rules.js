@@ -31,11 +31,14 @@ export function clientFacts(db, client, now) {
   const done = appts.filter(a => a.status === 'booked' && new Date(a.starts_at) <= now);
   const upcoming = appts.filter(a => a.status === 'booked' && new Date(a.starts_at) > now);
   const msgs = db.messages.filter(m => m.client_id === client.id).sort((a, b) => a.at.localeCompare(b.at));
+  // People booked from the same WhatsApp number share chats and message limits.
+  const ids = new Set(client.contact_id ? db.clients.filter(c => c.contact_id === client.contact_id).map(c => c.id) : [client.id]);
+  const householdMsgs = db.messages.filter(m => ids.has(m.client_id)).sort((a, b) => a.at.localeCompare(b.at));
   return {
-    appts, done, upcoming, msgs,
+    appts, done, upcoming, msgs, householdMsgs,
     last: done.at(-1) || null,
     next: upcoming[0] || null,
-    conv: db.conversations.find(c => c.client_id === client.id) || null,
+    conv: db.conversations.find(c => ids.has(c.client_id)) || null,
     visits: done.length,
     revenue: done.reduce((s, a) => s + (a.price || 0), 0),
   };
@@ -64,7 +67,7 @@ export function reinviteInfo(db, client, settings, now, f) {
     kind = 'reinvite';
     target = lastAt + weeks * 7 * DAY;
     reason = `${weeks} Wochen nach ${svc?.name || 'dem letzten Besuch'}`;
-    const lastAuto = f.msgs.filter(m => m.direction === 'out' && m.kind !== 'chat').at(-1);
+    const lastAuto = f.householdMsgs.filter(m => m.direction === 'out' && m.kind !== 'chat').at(-1);
     if (lastAuto && +new Date(lastAuto.at) + settings.min_gap_days * DAY > target) {
       target = +new Date(lastAuto.at) + settings.min_gap_days * DAY;
       reason += `, frühestens ${settings.min_gap_days} Tage nach der letzten Nachricht`;

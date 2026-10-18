@@ -71,7 +71,7 @@ export const STATE_META = {
 };
 export const stateBadge = state => badge(...(STATE_META[state] || [state, 'muted']));
 
-export const KIND_LABELS = { reinvite: 'Einladung', followup: 'Erinnerung', review: 'Bewertung', chat: 'Chat' };
+export const KIND_LABELS = { reinvite: 'Einladung', reinvite_multi: 'Gemeinsame Einladung', followup: 'Erinnerung', review: 'Bewertung', chat: 'Chat' };
 export const RESULT_META = {
   booked: ['Gebucht', 'green'],
   replied: ['Geantwortet', 'amber'],

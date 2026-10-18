@@ -236,3 +236,7 @@ input[type=number], input[type=date], select, .text-input { border: 1px solid va
 .sheet-item span { font-size: 12px; color: var(--muted); }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: var(--dark); color: white; font-size: 13px; padding: 10px 16px; border-radius: 20px; opacity: 0; transition: all 0.25s; z-index: 100; pointer-events: none; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+.login-error { color: #F4A582; font-size: 13px; min-height: 18px; text-align: center; }
+a.login-note { text-decoration: underline; }
+.link.inline { display: inline; color: var(--terra); }
+.card-more { color: var(--muted); font-weight: 400; font-size: 12px; }

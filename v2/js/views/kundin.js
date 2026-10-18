@@ -2,8 +2,10 @@ import { esc, badge, euro, icon, relative, formatDate, formatWhen, formatTime, o
   stateBadge, toggle, toast, messagePreview, KIND_LABELS, RESULT_META, QUEUE_META, CONV_META, dayKey } from '../ui.js';
 
 export async function render(ctx) {
-  const { client, summary: s, pending, timeline, conversation } = await ctx.api.getClient(ctx.salonId, ctx.params[0]);
+  const { client, summary: s, pending, timeline, conversation, others = [] } = await ctx.api.getClient(ctx.salonId, ctx.params[0]);
   const canEdit = ctx.can('edit_client');
+  // Someone who only chatted has no person record yet: only the number can be blocked.
+  const canEditPerson = canEdit && !client.virtual;
   const canQueue = ctx.can('manage_queue');
   ctx.cache.client = client;
 
@@ -16,6 +18,8 @@ export async function render(ctx) {
 
   const status = `<div class="panel">
       <div class="panel-row"><div><div class="panel-title">Status</div><div class="panel-sub">${esc(s.state_reason)}</div></div>${stateBadge(s.state)}</div>
+      ${others.length ? `<div class="panel-row stack"><div class="panel-sub">Gleiche WhatsApp-Nummer: ${others.map(o =>
+        `<a class="link inline" href="#/kundin/${o.id}">${esc(o.name)}</a>`).join(', ')}</div></div>` : ''}
     </div>`;
 
   const next = pending.length ? `<div class="section-label">Geplante Nachrichten</div>` + pending.map(p => `
@@ -36,20 +40,23 @@ export async function render(ctx) {
   const pausedValue = client.paused_until ? dayKey(client.paused_until) : '';
   const prefs = `<div class="section-label">Nachrichten an diese Kundin</div>
     <div class="panel">
+      <div class="panel-row"><div><div class="panel-title">Einwilligung für Einladungen</div>
+        <div class="panel-sub">${client.marketing_consent ? esc(client.consent_source || 'Liegt vor') : 'Ohne Einwilligung werden keine Einladungen gesendet'}</div></div>
+        ${toggle('marketing_consent', client.marketing_consent, !canEdit || !client.contact_id || client.do_not_contact)}</div>
       <div class="panel-row"><div><div class="panel-title">Einladungen zum Wiederkommen</div>
-        <div class="panel-sub">${client.marketing_consent ? `Einwilligung: ${esc(client.consent_source)}` : 'Keine Einwilligung vorhanden'}</div></div>
-        ${toggle('invites_enabled', client.invites_enabled, !canEdit || client.do_not_contact)}</div>
+        <div class="panel-sub">Für diese Person</div></div>
+        ${toggle('invites_enabled', client.invites_enabled, !canEditPerson || client.do_not_contact)}</div>
       <div class="panel-row"><div><div class="panel-title">Bewertungsanfragen</div><div class="panel-sub">Am Tag nach dem Termin</div></div>
-        ${toggle('reviews_enabled', client.reviews_enabled, !canEdit || client.do_not_contact)}</div>
+        ${toggle('reviews_enabled', client.reviews_enabled, !canEditPerson || client.do_not_contact)}</div>
       <div class="panel-row"><div><div class="panel-title">Pausieren bis</div><div class="panel-sub">Zum Beispiel bei Urlaub oder Schwangerschaft</div></div>
-        <div class="inline-field"><input type="date" data-pause value="${pausedValue}" ${!canEdit ? 'disabled' : ''}>
-        ${pausedValue && canEdit ? `<button class="icon-btn" data-unpause aria-label="Pause aufheben">${icon('x', 14)}</button>` : ''}</div></div>
+        <div class="inline-field"><input type="date" data-pause value="${pausedValue}" ${!canEditPerson ? 'disabled' : ''}>
+        ${pausedValue && canEditPerson ? `<button class="icon-btn" data-unpause aria-label="Pause aufheben">${icon('x', 14)}</button>` : ''}</div></div>
       <div class="panel-row"><div><div class="panel-title">Nicht kontaktieren</div>
         <div class="panel-sub">${client.do_not_contact ? esc(client.dnc_reason || 'Keine automatischen Nachrichten') : 'Sperrt alle automatischen Nachrichten'}</div></div>
         ${toggle('do_not_contact', client.do_not_contact, !canEdit)}</div>
     </div>
     <div class="section-label">Notiz</div>
-    <div class="panel"><textarea class="note" data-note rows="2" placeholder="Nur für dein Team sichtbar" ${!canEdit ? 'disabled' : ''}>${esc(client.note)}</textarea></div>`;
+    <div class="panel"><textarea class="note" data-note rows="2" placeholder="Nur für dein Team sichtbar" ${!canEditPerson ? 'disabled' : ''}>${esc(client.note)}</textarea></div>`;
 
   const items = timeline.map(t => {
     if (t.type === 'appointment') {
@@ -96,6 +103,10 @@ export function mount(el, ctx) {
       return save({ do_not_contact: true, dnc_reason: 'Von dir gesperrt' });
     }
     if (f === 'do_not_contact') return save({ do_not_contact: false, dnc_reason: '' });
+    if (f === 'marketing_consent') {
+      if (e.target.checked && !confirm('Hat diese Kundin zugestimmt, Einladungen per WhatsApp zu bekommen?')) { e.target.checked = false; return; }
+      return save({ marketing_consent: e.target.checked, consent_source: e.target.checked ? 'Von der Inhaberin bestätigt' : '' });
+    }
     if (f) return save({ [f]: e.target.checked });
     if (e.target.matches('[data-pause]')) {
       const v = e.target.value;

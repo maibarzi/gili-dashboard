@@ -22,8 +22,8 @@ const ROUTES = [
   { re: /^\/kundinnen$/, view: kundinnen, tab: 'kundinnen' },
   { re: /^\/nachrichten(?:\/(chats|geplant|gesendet))?$/, view: nachrichten, tab: 'nachrichten' },
   { re: /^\/einnahmen$/, view: einnahmen, tab: 'einnahmen', perm: 'view_income' },
-  { re: /^\/kundin\/([\w-]+)$/, view: kundin, overlay: true },
-  { re: /^\/chat\/([\w-]+)$/, view: chat, overlay: true },
+  { re: /^\/kundin\/([\w:-]+)$/, view: kundin, overlay: true },
+  { re: /^\/chat\/([\w:-]+)$/, view: chat, overlay: true },
   { re: /^\/einstellungen$/, view: einstellungen, overlay: true, perm: 'edit_settings' },
 ];
 
@@ -116,7 +116,7 @@ function renderShell() {
   const salon = session.memberships.find(m => m.salon_id === session.salonId).salon;
   const multi = session.memberships.length > 1;
   $('#app').innerHTML = `
-    ${api.isDemo ? '<div class="demo-banner">Demo mit erfundenen Daten</div>' : ''}
+    ${api.isDemo ? '<div class="demo-banner">Demo mit erfundenen Daten</div>' : api.label ? `<div class="demo-banner">${esc(api.label)}</div>` : ''}
     <header class="header">
       <div class="header-logo">gili<span>.</span></div>
       <div class="header-right">
@@ -149,9 +149,10 @@ function sheet(html) {
 }
 
 async function start() {
-  session = await api.auth.getSession();
+  let error = '';
+  try { session = await api.auth.getSession(); } catch (err) { session = null; error = err.message; }
   if (!session) {
-    $('#app').innerHTML = await login.render(api);
+    $('#app').innerHTML = await login.render(api, error);
     renderIcons();
     return;
   }
@@ -201,6 +202,25 @@ document.addEventListener('click', async e => {
   const link = e.target.closest('[data-href]');
   if (link && !e.target.closest('button, a, input, select, textarea, label')) location.hash = link.dataset.href;
 });
+
+document.addEventListener('submit', async e => {
+  const form = e.target.closest('[data-login]');
+  if (!form) return;
+  e.preventDefault();
+  const button = form.querySelector('button');
+  button.disabled = true;
+  try {
+    await api.auth.signInWithPassword(form.email.value.trim(), form.password.value);
+    history.length = 0;
+    await start();
+  } catch (err) {
+    form.querySelector('[data-error]').textContent = err.message;
+    button.disabled = false;
+  }
+});
+
+// A failed save should never pass silently.
+window.addEventListener('unhandledrejection', e => toast(`Fehler: ${e.reason?.message || e.reason}`));
 
 window.addEventListener('hashchange', route);
 start();

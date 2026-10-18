@@ -17,5 +17,12 @@ for f in "$here"/../migrations/*.sql; do echo "== $(basename "$f")"; "${psql[@]}
 # Extra SQL files given as arguments (e.g. a generated import) run after the migrations.
 for f in "$@"; do echo "== $(basename "$f")"; "${psql[@]}" -f "$f"; done
 [ -n "${CHECK_SQL:-}" ] && "${psql[@]}" -c "$CHECK_SQL"
+# DUMP_DIR: write every CRM table as JSON (as the API would return it) for the dashboard test.
+if [ -n "${DUMP_DIR:-}" ]; then
+  mkdir -p "$DUMP_DIR"
+  for t in memberships salons staff services contacts people appointments appointment_services messages automation_settings message_templates queue_decisions; do
+    "${psql[@]}" -tAc "select coalesce(json_agg(t), '[]') from public.$t t" > "$DUMP_DIR/$t.json"
+  done
+fi
 echo "== rls_test.sql"
 "${psql[@]}" -f "$here/rls_test.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  /  /'

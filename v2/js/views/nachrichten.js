@@ -19,7 +19,7 @@ async function chats(ctx) {
   const card = c => `
     <div class="card ${c.status === 'handoff' ? 'alert' : ''}" data-href="#/chat/${c.client.id}">
       <div class="card-info">
-        <div class="card-name">${esc(c.client.name)}</div>
+        <div class="card-name">${esc(c.client.name)}${c.client.others ? ` <span class="card-more">+${c.client.others}</span>` : ''}</div>
         <div class="card-sub ellipsis">${c.last.direction === 'out' ? 'Gili: ' : ''}${esc(c.last.body.split('\n')[0])}</div>
         <div class="card-tag muted">${relative(c.last.at)}</div>
       </div>

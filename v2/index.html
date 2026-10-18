@@ -13,5 +13,12 @@
 <div id="app" class="app"></div>
 <div id="overlay" class="overlay"></div>
 <script type="module" src="js/app.js"></script>
+<script>
+  // If a module fails to load (e.g. no network for the Supabase library), say so instead of a blank page.
+  setTimeout(() => {
+    const app = document.getElementById('app');
+    if (!app.children.length) app.innerHTML = '<div class="empty">Konnte nicht geladen werden. Bitte die Seite neu laden.</div>';
+  }, 10000);
+</script>
 </body>
 </html>
