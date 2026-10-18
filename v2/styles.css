@@ -240,3 +240,7 @@ input[type=number], input[type=date], select, .text-input { border: 1px solid va
 a.login-note { text-decoration: underline; }
 .link.inline { display: inline; color: var(--terra); }
 .card-more { color: var(--muted); font-weight: 400; font-size: 12px; }
+.code-input { font-size: 22px; letter-spacing: 0.3em; text-align: center; }
+.login-links { display: flex; gap: 20px; }
+.link-btn { background: none; border: none; color: rgba(255,255,255,0.55); font-size: 12px; text-decoration: underline; }
+.login-note b { color: white; font-weight: 500; }

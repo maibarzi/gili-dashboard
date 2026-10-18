@@ -42,8 +42,12 @@ export function createClient() {
     auth: {
       getSession: async () => ({ data: { session: sessionStorage.getItem('fake') ? { user: USER } : null } }),
       getUser: async () => ({ data: { user: USER } }),
-      signInWithPassword: async ({ password }) => {
-        if (password !== 'test') return { error: { message: 'Invalid login credentials' } };
+      signInWithOtp: async ({ email, options }) => {
+        window.__otp = { email, options };
+        return { error: email === USER.email ? null : { message: 'Signups not allowed for otp' } };
+      },
+      verifyOtp: async ({ token }) => {
+        if (token !== '123456') return { error: { message: 'Token has expired or is invalid' } };
         sessionStorage.setItem('fake', '1');
         return { error: null };
       },

@@ -52,11 +52,19 @@ const visit = async (p, hash) => { await p.evaluate(h => { location.hash = h; },
 {
   const { p, errors, shot } = await page();
   await p.goto(base);
-  await p.waitForSelector('form[data-login]');
-  await p.fill('#email', 'mai@test'); await p.fill('#password', 'wrong'); await p.click('form[data-login] button');
+  await p.waitForSelector('form[data-login-email]');
+  await p.fill('#email', 'stranger@test'); await p.click('form[data-login-email] button');
   await p.waitForTimeout(300);
-  check((await p.textContent('[data-error]')).includes('falsch'), 'wrong password shows an error');
-  await p.fill('#password', 'test'); await p.click('form[data-login] button');
+  check((await p.textContent('[data-error]')).includes('keinen Zugang'), 'unknown e-mail gets no code');
+  await p.fill('#email', 'mai@test'); await p.click('form[data-login-email] button');
+  await p.waitForSelector('form[data-login-code]');
+  const otp = await p.evaluate(() => window.__otp);
+  check(otp.options.shouldCreateUser === false, 'sign-in never creates new accounts');
+  await p.fill('#code', '000000'); await p.click('form[data-login-code] button[type=submit]');
+  await p.waitForTimeout(300);
+  check((await p.textContent('[data-error]')).includes('falsch oder abgelaufen'), 'wrong code shows an error');
+  await shot('real-login-code');
+  await p.fill('#code', '123 456'); await p.click('form[data-login-code] button[type=submit]');
   await p.waitForSelector('.nav');
   check((await p.textContent('.header-salon')).includes('Florence'), 'signed in, salon Florence loaded');
   check((await p.textContent('.demo-banner')).includes('gili-test'), 'banner says this is the test database');

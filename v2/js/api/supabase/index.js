@@ -150,9 +150,22 @@ async function team(salonId) {
 }
 
 const auth = {
-  async signInWithPassword(email, password) {
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message === 'Invalid login credentials' ? 'E-Mail oder Passwort falsch' : error.message);
+  // Sign-in by e-mail: Supabase sends a 6-digit code (and a link). Only
+  // existing users get one; accounts are created by an admin or an invitation.
+  async sendLoginCode(email) {
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: false, emailRedirectTo: location.origin + location.pathname },
+    });
+    if (error) {
+      if (/signups not allowed|not found/i.test(error.message)) throw new Error('Für diese E-Mail-Adresse gibt es keinen Zugang');
+      if (/rate limit|security purposes/i.test(error.message)) throw new Error('Bitte kurz warten, bevor ein neuer Code angefordert wird');
+      throw new Error(error.message);
+    }
+  },
+  async verifyLoginCode(email, code) {
+    const { error } = await sb.auth.verifyOtp({ email, token: code, type: 'email' });
+    if (error) throw new Error(/expired|invalid/i.test(error.message) ? 'Der Code ist falsch oder abgelaufen' : error.message);
   },
   async getSession() {
     const { data: { session } } = await sb.auth.getSession();

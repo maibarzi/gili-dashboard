@@ -80,7 +80,7 @@ async function updatePendingCount() {
 }
 
 async function route() {
-  if (!session) return;
+  if (!session || /access_token=|error_description=/.test(location.hash)) return;
   const hash = location.hash || '#/termine';
   if (history.at(-2) === hash) history.pop(); else history.push(hash);
 
@@ -156,6 +156,8 @@ async function start() {
     renderIcons();
     return;
   }
+  // Coming back from a sign-in link: Supabase has read the tokens, clear them from the URL.
+  if (/access_token=|error_description=/.test(location.hash)) window.history.replaceState(null, '', location.pathname + location.search + '#/termine');
   renderShell();
   await route();
 }
@@ -203,19 +205,39 @@ document.addEventListener('click', async e => {
   if (link && !e.target.closest('button, a, input, select, textarea, label')) location.hash = link.dataset.href;
 });
 
+// Sign-in: first the e-mail (a code is sent), then the code.
+let loginEmail = '';
 document.addEventListener('submit', async e => {
-  const form = e.target.closest('[data-login]');
+  const form = e.target.closest('[data-login-email], [data-login-code]');
   if (!form) return;
   e.preventDefault();
-  const button = form.querySelector('button');
+  const button = form.querySelector('button[type=submit]');
+  const error = form.querySelector('[data-error]');
   button.disabled = true;
+  error.textContent = '';
   try {
-    await api.auth.signInWithPassword(form.email.value.trim(), form.password.value);
-    history.length = 0;
-    await start();
+    if (form.matches('[data-login-email]')) {
+      loginEmail = form.email.value.trim();
+      await api.auth.sendLoginCode(loginEmail);
+      $('#app').innerHTML = login.renderCode(api, loginEmail);
+      $('#code').focus();
+    } else {
+      await api.auth.verifyLoginCode(loginEmail, form.code.value.replace(/\D/g, ''));
+      history.length = 0;
+      await start();
+    }
   } catch (err) {
-    form.querySelector('[data-error]').textContent = err.message;
+    error.textContent = err.message;
     button.disabled = false;
+  }
+});
+
+document.addEventListener('click', async e => {
+  const a = e.target.closest('[data-login-action]')?.dataset.loginAction;
+  if (a === 'other-email') { $('#app').innerHTML = await login.render(api); return; }
+  if (a === 'resend') {
+    try { await api.auth.sendLoginCode(loginEmail); toast('Neuer Code gesendet'); }
+    catch (err) { toast(err.message); }
   }
 });
 
